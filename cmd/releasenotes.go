@@ -57,6 +57,10 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if ProjectsList == "" {
+			log.Fatal("You must specify a project or list of projects with the -p or --projects string flag")
+		}
+
 		if SprintsBack < 0 {
 			log.Fatal("sprintsback cannot be less than 0")
 		}
@@ -121,71 +125,79 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 
 	projects := strings.Split(ProjectsList, ",")
 	for _, project := range projects {
-		thisSprintData := getSprintDataForBoardWithSprintOptions(jiraClient, project, sprintOpts)
-		allSprints = append(allSprints, thisSprintData)
-		combinedSprints.CompletedIssues = append(combinedSprints.CompletedIssues, thisSprintData.CompletedIssues...)
-		combinedSprints.IncompleteIssues = append(combinedSprints.IncompleteIssues, thisSprintData.IncompleteIssues...)
+		thisSprintData, getErr := getSprintDataForBoardWithSprintOptions(jiraClient, project, sprintOpts)
+		if getErr == nil {
+			allSprints = append(allSprints, thisSprintData)
+			combinedSprints.CompletedIssues = append(combinedSprints.CompletedIssues, thisSprintData.CompletedIssues...)
+			combinedSprints.IncompleteIssues = append(combinedSprints.IncompleteIssues, thisSprintData.IncompleteIssues...)
+		} else {
+			fmt.Println(getErr)
+		}
 	}
 
-	if SeparateProjects {
-		for _, sprint := range allSprints {
+	if len(allSprints) > 0 {
+		if SeparateProjects {
+			for _, sprint := range allSprints {
+				if Confluence {
+					fmt.Printf("h1. %s\n\n", sprint.Name)
+					fmt.Printf("h2. Done\n\n")
+					fmt.Printf("||Key||Summary||Assignee||Status||\n")
+				} else {
+					fmt.Printf("# %s\n\n", sprint.Name)
+					fmt.Printf("## Done\n\n")
+				}
+
+				for _, i := range sprint.CompletedIssues {
+					printIssue(&i, baseURL)
+				}
+				if Confluence {
+					fmt.Printf("\nh2. Incomplete\n\n")
+					fmt.Printf("||Key||Summary||Assignee||Status||\n")
+				} else {
+					fmt.Printf("\n## Incomplete\n\n")
+				}
+
+				for _, i := range sprint.IncompleteIssues {
+					printIssue(&i, baseURL)
+				}
+				fmt.Printf("\n\n")
+			}
+		} else {
+			var sprintNames []string
+			for _, sp := range allSprints {
+				sprintNames = append(sprintNames, sp.Name)
+			}
+			sprintNameString := strings.Join(sprintNames, " + ")
 			if Confluence {
-				fmt.Printf("h1. %s\n\n", sprint.Name)
+				fmt.Printf("h1. %s\n\n", sprintNameString)
 				fmt.Printf("h2. Done\n\n")
 				fmt.Printf("||Key||Summary||Assignee||Status||\n")
 			} else {
-				fmt.Printf("# %s\n\n", sprint.Name)
+				fmt.Printf("# %s\n\n", sprintNameString)
 				fmt.Printf("## Done\n\n")
 			}
-
-			for _, i := range sprint.CompletedIssues {
+			for _, i := range combinedSprints.CompletedIssues {
 				printIssue(&i, baseURL)
 			}
+
 			if Confluence {
 				fmt.Printf("\nh2. Incomplete\n\n")
 				fmt.Printf("||Key||Summary||Assignee||Status||\n")
 			} else {
 				fmt.Printf("\n## Incomplete\n\n")
 			}
-
-			for _, i := range sprint.IncompleteIssues {
+			for _, i := range combinedSprints.IncompleteIssues {
 				printIssue(&i, baseURL)
 			}
 			fmt.Printf("\n\n")
 		}
 	} else {
-		var sprintNames []string
-		for _, sp := range allSprints {
-			sprintNames = append(sprintNames, sp.Name)
-		}
-		sprintNameString := strings.Join(sprintNames, ", ")
-		if Confluence {
-			fmt.Printf("h1. %s\n\n", sprintNameString)
-			fmt.Printf("h2. Done\n\n")
-			fmt.Printf("||Key||Summary||Assignee||Status||\n")
-		} else {
-			fmt.Printf("# %s\n\n", sprintNameString)
-			fmt.Printf("## Done\n\n")
-		}
-		for _, i := range combinedSprints.CompletedIssues {
-			printIssue(&i, baseURL)
-		}
-
-		if Confluence {
-			fmt.Printf("\nh2. Incomplete\n\n")
-			fmt.Printf("||Key||Summary||Assignee||Status||\n")
-		} else {
-			fmt.Printf("\n## Incomplete\n\n")
-		}
-		for _, i := range combinedSprints.IncompleteIssues {
-			printIssue(&i, baseURL)
-		}
-		fmt.Printf("\n\n")
+		fmt.Println("No sprints found for those projects")
 	}
 
 }
 
-func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project string, sprintOptions jira.GetAllSprintsOptions) SprintData {
+func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project string, sprintOptions jira.GetAllSprintsOptions) (SprintData, error) {
 	var sprintData SprintData
 
 	jiraBoardOpts := jira.BoardListOptions{
@@ -194,6 +206,10 @@ func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project str
 	foundBoards, _, err := jiraClient.Board.GetAllBoards(&jiraBoardOpts)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if len(foundBoards.Values) == 0 {
+		emptyErr := fmt.Errorf("Did not find any boards for project %s", project)
+		return sprintData, emptyErr
 	}
 
 	sprints, _, sprintsErr := jiraClient.Board.GetAllSprintsWithOptions(foundBoards.Values[0].ID, &sprintOptions)
@@ -224,6 +240,6 @@ func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project str
 		}
 	}
 
-	return sprintData
+	return sprintData, nil
 
 }

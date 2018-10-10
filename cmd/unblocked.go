@@ -40,6 +40,9 @@ and check which issues have blocking issues that are completed.
 This is especially useful for Jira Service Desk projects that
 are used to create linked issues in other boards`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if Project == "" {
+			log.Fatal("You must include the -p or --project string parameter")
+		}
 
 		url, username, password := jirasetup.GetEnvVariablesOrAsk()
 		transport := jira.BasicAuthTransport{
