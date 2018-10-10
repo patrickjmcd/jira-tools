@@ -31,8 +31,8 @@ type SprintData struct {
 	IncompleteIssues []jira.Issue
 }
 
-// Boardslist holds a comma separated list of boards
-var Boardslist string
+// ProjectsList holds a comma separated list of boards
+var ProjectsList string
 
 // ActiveSprint forces the program to create release notes for the currently active sprints
 var ActiveSprint bool
@@ -75,7 +75,7 @@ func init() {
 	// Cobra supports Persistent Flags which will work for this command
 	// and all subcommands, e.g.:
 	// releasenotesCmd.PersistentFlags().String("foo", "", "A help for foo")
-	releasenotesCmd.PersistentFlags().StringVarP(&Boardslist, "boards", "b", "", "list of Jira boards to evaluate")
+	releasenotesCmd.PersistentFlags().StringVarP(&ProjectsList, "projects", "p", "", "comma-separated list of Jira Projects to evaluate")
 	releasenotesCmd.PersistentFlags().BoolVarP(&ActiveSprint, "active", "a", false, "create release notes for the active sprint")
 	releasenotesCmd.PersistentFlags().BoolVarP(&SeparateProjects, "separate", "s", false, "separate the projects out into individual release notes")
 	releasenotesCmd.PersistentFlags().BoolVarP(&Markdown, "markdown", "m", false, "output in markdown, defaults to confluence wiki")
@@ -111,8 +111,8 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 		sprintOpts.State = "active"
 	}
 
-	combinedSprints.Name = fmt.Sprintf("Combined Data for %s Projects", Boardslist)
-	boards := strings.Split(Boardslist, ",")
+	combinedSprints.Name = fmt.Sprintf("Combined Data for %s Projects", ProjectsList)
+	boards := strings.Split(ProjectsList, ",")
 	for _, board := range boards {
 		thisSprintData := getSprintDataForBoardWithSprintOptions(jiraClient, board, sprintOpts)
 		allSprints = append(allSprints, thisSprintData)

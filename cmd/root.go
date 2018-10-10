@@ -28,13 +28,16 @@ var cfgFile string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "jira-tools",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Command line tools for interacting with Jira",
+	Long: `A command line tool for interacting with Jira
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Configuration works best via environment variables:
+	JIRA_URL =  the url of your Jira instance
+	JIRA_USERNAME = the username used to access Jira
+	JIRA_PASSWORD =  the password used to access Jira
+	
+If any environment variables are not set, the program will
+prompt the user to input the value.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
