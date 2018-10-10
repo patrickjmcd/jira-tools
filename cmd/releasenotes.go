@@ -1,4 +1,4 @@
-// Copyright © 2018 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2018 Patrick McDonagh <patrickjmcd@gmail.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ func printIssue(i *jira.Issue, baseURL string) {
 	}
 
 	if Markdown {
-		fmt.Printf("  * [%s|%s/browse/%s] %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Summary, assignee, i.Fields.Status.Name)
+		fmt.Printf("- [%s](%s/browse/%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	} else {
 		fmt.Printf("|[%s|%s/browse/%s]|%s|%s|%s|\n", i.Key, baseURL, i.Key, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	}
