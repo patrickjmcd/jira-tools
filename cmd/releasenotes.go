@@ -104,9 +104,9 @@ func printIssue(i *jira.Issue, baseURL string) {
 	}
 
 	if Confluence {
-		fmt.Printf("|[%s|%s/browse/%s]|%s|%s|%s|\n", i.Key, baseURL, i.Key, i.Fields.Summary, assignee, i.Fields.Status.Name)
+		fmt.Printf("|[%s|%s/browse/%s]|%s|%s|%s|%s|\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	} else {
-		fmt.Printf("- [%s](%s/browse/%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Summary, assignee, i.Fields.Status.Name)
+		fmt.Printf("- [%s](%s)(%s/browse/%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	}
 
 }
@@ -141,7 +141,7 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 				if Confluence {
 					fmt.Printf("h1. %s\n\n", sprint.Name)
 					fmt.Printf("h2. Done\n\n")
-					fmt.Printf("||Key||Summary||Assignee||Status||\n")
+					fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 				} else {
 					fmt.Printf("# %s\n\n", sprint.Name)
 					fmt.Printf("## Done\n\n")
@@ -152,7 +152,7 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 				}
 				if Confluence {
 					fmt.Printf("\nh2. Incomplete\n\n")
-					fmt.Printf("||Key||Summary||Assignee||Status||\n")
+					fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 				} else {
 					fmt.Printf("\n## Incomplete\n\n")
 				}
@@ -171,7 +171,7 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 			if Confluence {
 				fmt.Printf("h1. %s\n\n", sprintNameString)
 				fmt.Printf("h2. Done\n\n")
-				fmt.Printf("||Key||Summary||Assignee||Status||\n")
+				fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 			} else {
 				fmt.Printf("# %s\n\n", sprintNameString)
 				fmt.Printf("## Done\n\n")
@@ -182,7 +182,7 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 
 			if Confluence {
 				fmt.Printf("\nh2. Incomplete\n\n")
-				fmt.Printf("||Key||Summary||Assignee||Status||\n")
+				fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 			} else {
 				fmt.Printf("\n## Incomplete\n\n")
 			}
