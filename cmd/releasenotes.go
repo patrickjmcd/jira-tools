@@ -106,7 +106,7 @@ func printIssue(i *jira.Issue, baseURL string) {
 	if Confluence {
 		fmt.Printf("|[%s|%s/browse/%s]|%s|%s|%s|%s|\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	} else {
-		fmt.Printf("- [%s](%s)(%s/browse/%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
+		fmt.Printf("- [%s](%s/browse/%s)(%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	}
 
 }
