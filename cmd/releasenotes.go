@@ -46,6 +46,9 @@ var Confluence bool
 // SprintsBack is the number of sprints to look back at the data
 var SprintsBack int
 
+// LabelFilter only returns values with a specific label
+var LabelFilter string
+
 // releasenotesCmd represents the releasenotes command
 var releasenotesCmd = &cobra.Command{
 	Use:   "releasenotes",
@@ -91,6 +94,7 @@ func init() {
 	releasenotesCmd.PersistentFlags().IntVarP(&SprintsBack, "sprintsback", "b", 0, "number of sprints to look back (defaults to 0, most recent completed sprint)")
 	releasenotesCmd.PersistentFlags().BoolVarP(&SeparateProjects, "separate", "s", false, "separate the projects out into individual release notes")
 	releasenotesCmd.PersistentFlags().BoolVarP(&Confluence, "confluence", "c", false, "output in confluence wiki format, defaults to markdown")
+	releasenotesCmd.PersistentFlags().StringVarP(&LabelFilter, "label", "l", "", "only return results with this label")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
@@ -197,6 +201,15 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 
 }
 
+func stringInSlice(specificString string, sliceOfStrings []string) bool {
+	for _, s := range sliceOfStrings {
+		if specificString == s {
+			return true
+		}
+	}
+	return false
+}
+
 func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project string, sprintOptions jira.GetAllSprintsOptions) (SprintData, error) {
 	var sprintData SprintData
 
@@ -231,6 +244,10 @@ func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project str
 	}
 
 	for _, issue := range issues {
+		// fmt.Printf("%s - label: %s, filter: %s\n", issue.Key, issue.Fields.Labels, LabelFilter)
+		if len(LabelFilter) > 0 && !stringInSlice(LabelFilter, issue.Fields.Labels) {
+			continue
+		}
 		switch issue.Fields.Status.Name {
 		case "In Progress", "To Do":
 			sprintData.IncompleteIssues = append(sprintData.IncompleteIssues, issue)
