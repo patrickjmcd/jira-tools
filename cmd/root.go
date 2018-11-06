@@ -37,15 +37,7 @@ Configuration works best via environment variables:
 	JIRA_PASSWORD =  the password used to access Jira
 	
 If any environment variables are not set, the program will
-prompt the user to input the value.
-
-. <(jira-tools completion)
-
-To configure your bash shell to load completions for each session add to your bashrc
-
-# ~/.bashrc or ~/.profile
-. <(jira-tools completion)
-`,
+prompt the user to input the value.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -54,7 +46,6 @@ To configure your bash shell to load completions for each session add to your ba
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	rootCmd.GenBashCompletion(os.Stdout)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
