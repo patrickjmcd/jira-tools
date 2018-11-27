@@ -27,8 +27,15 @@ import (
 // SprintData struct
 type SprintData struct {
 	Name             string
-	CompletedIssues  []jira.Issue
-	IncompleteIssues []jira.Issue
+	CompletedIssues  []IssuePrinted
+	IncompleteIssues []IssuePrinted
+	IssueTypes       []string
+}
+
+// IssuePrinted struct
+type IssuePrinted struct {
+	JiraIssue jira.Issue
+	Printed   string
 }
 
 // ProjectsList holds a comma separated list of boards
@@ -48,6 +55,12 @@ var SprintsBack int
 
 // LabelFilter only returns values with a specific label
 var LabelFilter string
+
+// ReleaseLabel issues with this label should be included in public release notes
+var ReleaseLabel string
+
+// ConfluenceTableHeader is the re-used string that holds the header column names for confluence wiki format
+var ConfluenceTableHeader = "||Key||Type||Summary||Assignee||Status||"
 
 // releasenotesCmd represents the releasenotes command
 var releasenotesCmd = &cobra.Command{
@@ -94,31 +107,49 @@ func init() {
 	releasenotesCmd.PersistentFlags().IntVarP(&SprintsBack, "sprintsback", "b", 0, "number of sprints to look back (defaults to 0, most recent completed sprint)")
 	releasenotesCmd.PersistentFlags().BoolVarP(&SeparateProjects, "separate", "s", false, "separate the projects out into individual release notes")
 	releasenotesCmd.PersistentFlags().BoolVarP(&Confluence, "confluence", "c", false, "output in confluence wiki format, defaults to markdown")
-	releasenotesCmd.PersistentFlags().StringVarP(&LabelFilter, "label", "l", "", "only return results with this label")
+	releasenotesCmd.PersistentFlags().StringVarP(&LabelFilter, "labelfilter", "f", "", "only return results with this label")
+	releasenotesCmd.PersistentFlags().StringVarP(&ReleaseLabel, "releaselabel", "l", "include-in-release-notes", "issues with this label should be included in public release notes")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// releasenotesCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func printIssue(i *jira.Issue, baseURL string) {
+func getPrintedIssue(i *jira.Issue, baseURL string) string {
 	assignee := "UNASSIGNED"
 	if i.Fields.Assignee != nil {
 		assignee = i.Fields.Assignee.DisplayName
 	}
 
-	if Confluence {
-		fmt.Printf("|[%s|%s/browse/%s]|%s|%s|%s|%s|\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
-	} else {
-		fmt.Printf("- [%s](%s/browse/%s)(%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
+	confluenceIssue := fmt.Sprintf("|[%s|%s/browse/%s]|%s|%s|%s|%s|", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
+	markdownIssue := fmt.Sprintf("- [%s](%s/browse/%s)(%s) %s -- %s -- %s", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
+
+	if len(ReleaseLabel) > 0 && stringInSlice(ReleaseLabel, i.Fields.Labels) && ReleaseLabel != LabelFilter {
+		confluenceIssue = fmt.Sprintf("|*[%s|%s/browse/%s]*|*%s*|*%s*|*%s*|*%s*|", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
+		markdownIssue = fmt.Sprintf("- **[%s](%s/browse/%s)(%s) %s -- %s -- %s**", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	}
 
+	if Confluence {
+		return confluenceIssue
+	}
+	return markdownIssue
+
+}
+
+func printIssueTable(issues []IssuePrinted) {
+	if Confluence {
+		fmt.Println(ConfluenceTableHeader)
+	}
+	for _, i := range issues {
+		fmt.Println(i.Printed)
+	}
+	fmt.Println("")
+	fmt.Println("")
 }
 
 func generateReleaseNotes(jiraClient *jira.Client) {
 	var combinedSprints SprintData
 	var allSprints []SprintData
-	baseURL := fmt.Sprintf("https://%s", jiraClient.GetBaseURL().Host)
 	sprintOpts := jira.GetAllSprintsOptions{
 		State: "closed",
 	}
@@ -134,6 +165,9 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 			allSprints = append(allSprints, thisSprintData)
 			combinedSprints.CompletedIssues = append(combinedSprints.CompletedIssues, thisSprintData.CompletedIssues...)
 			combinedSprints.IncompleteIssues = append(combinedSprints.IncompleteIssues, thisSprintData.IncompleteIssues...)
+			for _, t := range thisSprintData.IssueTypes {
+				combinedSprints.IssueTypes = addToStringSliceIfUnique(t, combinedSprints.IssueTypes)
+			}
 		} else {
 			fmt.Println(getErr)
 		}
@@ -145,26 +179,18 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 				if Confluence {
 					fmt.Printf("h1. %s\n\n", sprint.Name)
 					fmt.Printf("h2. Done\n\n")
-					fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 				} else {
 					fmt.Printf("# %s\n\n", sprint.Name)
 					fmt.Printf("## Done\n\n")
 				}
+				printIssueTable(sprint.CompletedIssues)
 
-				for _, i := range sprint.CompletedIssues {
-					printIssue(&i, baseURL)
-				}
 				if Confluence {
 					fmt.Printf("\nh2. Incomplete\n\n")
-					fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 				} else {
 					fmt.Printf("\n## Incomplete\n\n")
 				}
-
-				for _, i := range sprint.IncompleteIssues {
-					printIssue(&i, baseURL)
-				}
-				fmt.Printf("\n\n")
+				printIssueTable(sprint.IncompleteIssues)
 			}
 		} else {
 			var sprintNames []string
@@ -175,25 +201,18 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 			if Confluence {
 				fmt.Printf("h1. %s\n\n", sprintNameString)
 				fmt.Printf("h2. Done\n\n")
-				fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 			} else {
 				fmt.Printf("# %s\n\n", sprintNameString)
 				fmt.Printf("## Done\n\n")
 			}
-			for _, i := range combinedSprints.CompletedIssues {
-				printIssue(&i, baseURL)
-			}
+			printIssueTable(combinedSprints.CompletedIssues)
 
 			if Confluence {
 				fmt.Printf("\nh2. Incomplete\n\n")
-				fmt.Printf("||Key||Type||Summary||Assignee||Status||\n")
 			} else {
 				fmt.Printf("\n## Incomplete\n\n")
 			}
-			for _, i := range combinedSprints.IncompleteIssues {
-				printIssue(&i, baseURL)
-			}
-			fmt.Printf("\n\n")
+			printIssueTable(combinedSprints.IncompleteIssues)
 		}
 	} else {
 		fmt.Println("No sprints found for those projects")
@@ -210,8 +229,16 @@ func stringInSlice(specificString string, sliceOfStrings []string) bool {
 	return false
 }
 
+func addToStringSliceIfUnique(specificString string, sliceOfStrings []string) []string {
+	if !stringInSlice(specificString, sliceOfStrings) {
+		sliceOfStrings = append(sliceOfStrings, specificString)
+	}
+	return sliceOfStrings
+}
+
 func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project string, sprintOptions jira.GetAllSprintsOptions) (SprintData, error) {
 	var sprintData SprintData
+	baseURL := fmt.Sprintf("https://%s", jiraClient.GetBaseURL().Host)
 
 	jiraBoardOpts := jira.BoardListOptions{
 		ProjectKeyOrID: project,
@@ -248,12 +275,20 @@ func getSprintDataForBoardWithSprintOptions(jiraClient *jira.Client, project str
 		if len(LabelFilter) > 0 && !stringInSlice(LabelFilter, issue.Fields.Labels) {
 			continue
 		}
+
+		printedIssue := IssuePrinted{
+			JiraIssue: issue,
+			Printed:   getPrintedIssue(&issue, baseURL),
+		}
+
+		sprintData.IssueTypes = addToStringSliceIfUnique(issue.Fields.Type.Name, sprintData.IssueTypes)
+
 		switch issue.Fields.Status.Name {
 		case "In Progress", "To Do":
-			sprintData.IncompleteIssues = append(sprintData.IncompleteIssues, issue)
+			sprintData.IncompleteIssues = append(sprintData.IncompleteIssues, printedIssue)
 
 		default:
-			sprintData.CompletedIssues = append(sprintData.CompletedIssues, issue)
+			sprintData.CompletedIssues = append(sprintData.CompletedIssues, printedIssue)
 		}
 	}
 
