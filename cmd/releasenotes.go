@@ -143,8 +143,7 @@ func printIssueTable(issues []IssuePrinted) {
 	for _, i := range issues {
 		fmt.Println(i.Printed)
 	}
-	fmt.Println("")
-	fmt.Println("")
+	fmt.Println()
 }
 
 func generateReleaseNotes(jiraClient *jira.Client) {
@@ -173,31 +172,39 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 		}
 	}
 
+	var sprintNames []string
+	for _, sp := range allSprints {
+		sprintNames = append(sprintNames, sp.Name)
+	}
+	sprintNameString := strings.Join(sprintNames, " + ")
+
 	if len(allSprints) > 0 {
 		if SeparateProjects {
+			if Confluence {
+				fmt.Printf("h1. %s [SPLIT]\n\n", sprintNameString)
+			} else {
+				fmt.Printf("# %s [SPLIT]\n\n", sprintNameString)
+			}
+
 			for _, sprint := range allSprints {
 				if Confluence {
-					fmt.Printf("h1. %s\n\n", sprint.Name)
-					fmt.Printf("h2. Done\n\n")
+					fmt.Printf("h2. %s\n\n", sprint.Name)
+					fmt.Printf("h3. Done\n\n")
 				} else {
-					fmt.Printf("# %s\n\n", sprint.Name)
-					fmt.Printf("## Done\n\n")
+					fmt.Printf("## %s\n\n", sprint.Name)
+					fmt.Printf("### Done\n\n")
 				}
 				printIssueTable(sprint.CompletedIssues)
 
 				if Confluence {
-					fmt.Printf("\nh2. Incomplete\n\n")
+					fmt.Printf("h3. Incomplete\n\n")
 				} else {
-					fmt.Printf("\n## Incomplete\n\n")
+					fmt.Printf("### Incomplete\n\n")
 				}
 				printIssueTable(sprint.IncompleteIssues)
 			}
 		} else {
-			var sprintNames []string
-			for _, sp := range allSprints {
-				sprintNames = append(sprintNames, sp.Name)
-			}
-			sprintNameString := strings.Join(sprintNames, " + ")
+
 			if Confluence {
 				fmt.Printf("h1. %s\n\n", sprintNameString)
 				fmt.Printf("h2. Done\n\n")
@@ -208,9 +215,9 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 			printIssueTable(combinedSprints.CompletedIssues)
 
 			if Confluence {
-				fmt.Printf("\nh2. Incomplete\n\n")
+				fmt.Printf("h2. Incomplete\n\n")
 			} else {
-				fmt.Printf("\n## Incomplete\n\n")
+				fmt.Printf("## Incomplete\n\n")
 			}
 			printIssueTable(combinedSprints.IncompleteIssues)
 		}
