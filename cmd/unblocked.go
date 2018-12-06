@@ -24,6 +24,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+//ActionableLinkedIssues holds support issues with resolved or inprogress issues
+type ActionableLinkedIssues struct {
+	Resolved   []jira.Issue
+	InProgress []jira.Issue
+}
+
 // Verbose prints out the options
 var Verbose bool
 
@@ -54,19 +60,34 @@ are used to create linked issues in other boards`,
 			log.Fatal("Couldn't log on to the Jira server.")
 		}
 
-		// checkResolvedLinkedIssuesForProject(jiraClient, projectName, verbose)
-		issuesWithResolved := getResolvedLinkedIssuesForProject(jiraClient, Project, Verbose)
-		if len(issuesWithResolved) > 0 {
+		actionable := getActionableLinkedIssuesForProject(jiraClient, Project, Verbose)
+		if len(actionable.Resolved) > 0 {
 			color.Red("------------------------------------------------------")
-			color.Red("   The following %d issues have completed linked issues  ", len(issuesWithResolved))
+			color.Red("   The following %d issues have completed linked issues  ", len(actionable.Resolved))
 			color.Red("------------------------------------------------------")
-			for _, issue := range issuesWithResolved {
+			for _, issue := range actionable.Resolved {
 				color.Red("[%s] %s - %s/browse/%s", issue.Key, issue.Fields.Summary, url, issue.Key)
 			}
 			color.Red("------------------------------------------------------")
 		} else {
 			color.Green("------------------------------------------------------")
-			color.Green("  All issues seem to still have pending linked issues. ")
+			color.Green("  No issues have completed linked issues. ")
+			color.Green("------------------------------------------------------")
+		}
+		fmt.Print("\n\n")
+
+		if len(actionable.InProgress) > 0 {
+			color.Yellow("------------------------------------------------------")
+			color.Yellow("   The following %d issues have In Progress linked  ", len(actionable.InProgress))
+			color.Yellow("   issues but are not In Progress ")
+			color.Yellow("------------------------------------------------------")
+			for _, issue := range actionable.InProgress {
+				color.Yellow("[%s] %s - %s/browse/%s", issue.Key, issue.Fields.Summary, url, issue.Key)
+			}
+			color.Yellow("------------------------------------------------------")
+		} else {
+			color.Green("------------------------------------------------------")
+			color.Green("  No Issues have linked issues In Progress. ")
 			color.Green("------------------------------------------------------")
 		}
 	},
@@ -89,41 +110,6 @@ func init() {
 	// unblockedCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func checkLinkedIssueStatus(jiraClient *jira.Client, issue *jira.Issue, c chan string, verbose bool) {
-	issueLinks := issue.Fields.IssueLinks
-	var linkedIssues []*jira.Issue
-	for _, linked := range issueLinks {
-		if linked.OutwardIssue != nil {
-			linkedIssues = append(linkedIssues, linked.OutwardIssue)
-		}
-		if linked.InwardIssue != nil {
-			linkedIssues = append(linkedIssues, linked.InwardIssue)
-		}
-	}
-	linkedIssuesStillPending := false
-	for _, lIssue := range linkedIssues {
-		if verbose {
-			switch lIssue.Fields.Status.Name {
-			case "In Progress":
-				color.Set(color.FgBlue)
-			case "To Do":
-				color.Set(color.FgGreen)
-			default:
-				color.Set(color.FgRed)
-			}
-
-			fmt.Printf(" -- [%s] %s = %+v\n", lIssue.Key, lIssue.Fields.Summary, lIssue.Fields.Status.Name)
-			color.Unset()
-		}
-		if lIssue.Fields.Status.Name == "In Progress" || lIssue.Fields.Status.Name == "To Do" {
-			linkedIssuesStillPending = true
-		}
-	}
-	if !linkedIssuesStillPending && len(linkedIssues) > 0 {
-		c <- fmt.Sprintf("[%s] %s", issue.Key, issue.Fields.Summary)
-	}
-}
-
 func getLinkedIssuesForIssue(jiraClient *jira.Client, issue *jira.Issue) []*jira.Issue {
 	issueLinks := issue.Fields.IssueLinks
 	var linkedIssues []*jira.Issue
@@ -138,36 +124,14 @@ func getLinkedIssuesForIssue(jiraClient *jira.Client, issue *jira.Issue) []*jira
 	return linkedIssues
 }
 
-func checkResolvedLinkedIssuesForProject(jiraClient *jira.Client, projectName string, verbose bool) {
-	c := make(chan string)
+func getActionableLinkedIssuesForProject(jiraClient *jira.Client, projectName string, verbose bool) ActionableLinkedIssues {
 
-	searchOpts := jira.SearchOptions{
-		MaxResults: 999,
-	}
-
-	projectIssues, _, pErr := jiraClient.Issue.Search("project="+projectName+" and resolved is EMPTY", &searchOpts)
-	if pErr != nil {
-		log.Fatal(pErr)
-	}
-
-	for _, issue := range projectIssues {
-		go func(issue jira.Issue) {
-			checkLinkedIssueStatus(jiraClient, &issue, c, verbose)
-		}(issue)
-	}
-
-	for l := range c {
-		color.Red(l)
-	}
-
-}
-
-func getResolvedLinkedIssuesForProject(jiraClient *jira.Client, projectName string, verbose bool) []jira.Issue {
 	searchOpts := jira.SearchOptions{
 		MaxResults: 999,
 	}
 
 	var issuesWithResolvedLinkedIssues []jira.Issue
+	var issuesWithInProgressLinkedIssues []jira.Issue
 
 	projectIssues, _, pErr := jiraClient.Issue.Search("project="+projectName+" and resolved is EMPTY", &searchOpts)
 
@@ -181,6 +145,7 @@ func getResolvedLinkedIssuesForProject(jiraClient *jira.Client, projectName stri
 			fmt.Printf("\n[%s] %s -- %d issues\n", issue.Key, issue.Fields.Summary, len(linkedIssues))
 		}
 		linkedIssuesStillPending := false
+		linkedIssuesInProgress := false
 		for _, lIssue := range linkedIssues {
 			if verbose {
 				switch lIssue.Fields.Status.Name {
@@ -197,9 +162,17 @@ func getResolvedLinkedIssuesForProject(jiraClient *jira.Client, projectName stri
 			if lIssue.Fields.Status.Name == "To Do" || lIssue.Fields.Status.Name == "In Progress" {
 				linkedIssuesStillPending = true
 			}
+
+			if lIssue.Fields.Status.Name == "In Progress" {
+				linkedIssuesInProgress = true
+			}
 		}
 		if !linkedIssuesStillPending && len(linkedIssues) > 0 {
 			issuesWithResolvedLinkedIssues = append(issuesWithResolvedLinkedIssues, issue)
+		}
+
+		if linkedIssuesInProgress && len(linkedIssues) > 0 && issue.Fields.Status.Name != "In Progress" && issue.Fields.Status.Name != "Work in progress" {
+			issuesWithInProgressLinkedIssues = append(issuesWithInProgressLinkedIssues, issue)
 		}
 
 	}
@@ -208,5 +181,9 @@ func getResolvedLinkedIssuesForProject(jiraClient *jira.Client, projectName stri
 		fmt.Println()
 		fmt.Println()
 	}
-	return issuesWithResolvedLinkedIssues
+
+	return ActionableLinkedIssues{
+		issuesWithResolvedLinkedIssues,
+		issuesWithInProgressLinkedIssues,
+	}
 }

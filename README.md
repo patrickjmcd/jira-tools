@@ -10,7 +10,7 @@ go install jira-tools
 
 ### Unblocked Issues
 
-`unblocked` will search the specified project for issues whose blocking dependency is complete. This is useful for support projects linked to developer issues.
+`unblocked` will search the specified project for issues whose blocking dependency is complete or in progress. This is useful for support projects linked to developer issues.
 
 ```Shell
 Usage:
