@@ -38,3 +38,18 @@ Flags:
   -s, --separate          separate the projects out into individual release notes
   -b, --sprintsback int   number of sprints to look back (defaults to 0, most recent completed sprint)
 ```
+
+### Service Desk Issues
+
+`servicedesk` will generate a comma-separated list of issues in the specified project that were created in a specified time period. Using the flags, the program can output to a CSV file or, if no output filename is given, output to the console.
+
+```Shell
+Usage:
+  jira-tools servicedesk [flags]
+
+Flags:
+  -d, --days int         Days of history to retreive (default 7)
+  -h, --help             help for servicedesk
+  -o, --output string    CSV File to output
+  -p, --project string   Jira project to use
+```
