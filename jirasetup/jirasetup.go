@@ -18,7 +18,7 @@ func getUnspecifiedKey(key string) string {
 	var err error
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Printf("%s: ", key)
-	if key == "Jira Password" {
+	if key == "Jira API Key" {
 		byteRead, err = terminal.ReadPassword(int(syscall.Stdin))
 		stringRead = string(byteRead)
 	} else {
@@ -36,12 +36,12 @@ func getUnspecifiedKey(key string) string {
 func GetEnvVariablesOrAsk() (string, string, string) {
 	var jiraURL string
 	var jiraUsername string
-	var jiraPassword string
+	var jiraAPIKey string
 
 	viper.SetEnvPrefix("jira")
 	viper.BindEnv("username")
 	viper.BindEnv("url")
-	viper.BindEnv("password")
+	viper.BindEnv("api_key")
 
 	jiraURL = viper.GetString("url")
 	if !viper.IsSet("url") {
@@ -55,11 +55,11 @@ func GetEnvVariablesOrAsk() (string, string, string) {
 		os.Setenv("JIRA_USERNAME", jiraUsername)
 	}
 
-	jiraPassword = viper.GetString("password")
-	if !viper.IsSet("password") {
-		jiraPassword = getUnspecifiedKey("Jira Password")
-		os.Setenv("JIRA_PASSWORD", jiraPassword)
+	jiraAPIKey = viper.GetString("api_key")
+	if !viper.IsSet("api_key") {
+		jiraAPIKey = getUnspecifiedKey("Jira API Key")
+		os.Setenv("JIRA_API_KEY", jiraAPIKey)
 	}
 
-	return jiraURL, jiraUsername, jiraPassword
+	return jiraURL, jiraUsername, jiraAPIKey
 }

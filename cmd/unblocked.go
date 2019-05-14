@@ -50,10 +50,10 @@ are used to create linked issues in other boards`,
 			log.Fatal("You must include the -p or --project string parameter")
 		}
 
-		url, username, password := jirasetup.GetEnvVariablesOrAsk()
+		url, username, apiKey := jirasetup.GetEnvVariablesOrAsk()
 		transport := jira.BasicAuthTransport{
 			Username: username,
-			Password: password,
+			Password: apiKey,
 		}
 		jiraClient, err := jira.NewClient(transport.Client(), url)
 		if err != nil {

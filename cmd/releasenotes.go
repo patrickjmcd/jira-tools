@@ -81,10 +81,10 @@ to quickly create a Cobra application.`,
 			log.Fatal("sprintsback cannot be less than 0")
 		}
 
-		url, username, password := jirasetup.GetEnvVariablesOrAsk()
+		url, username, apiKey := jirasetup.GetEnvVariablesOrAsk()
 		transport := jira.BasicAuthTransport{
 			Username: username,
-			Password: password,
+			Password: apiKey,
 		}
 		jiraClient, err := jira.NewClient(transport.Client(), url)
 		if err != nil {

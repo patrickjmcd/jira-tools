@@ -34,7 +34,7 @@ var rootCmd = &cobra.Command{
 Configuration works best via environment variables:
 	JIRA_URL =  the url of your Jira instance
 	JIRA_USERNAME = the username used to access Jira
-	JIRA_PASSWORD =  the password used to access Jira
+	JIRA_API_KEY =  the API key used to access Jira
 	
 If any environment variables are not set, the program will
 prompt the user to input the value.`,
