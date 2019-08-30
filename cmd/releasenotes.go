@@ -53,6 +53,9 @@ var ReleaseKey string
 // ReleaseLabel issues with this label should be included in public release notes
 var ReleaseLabel string
 
+// Query holds a custom query string for creating custom release notes.
+var Query string
+
 // releasenotesCmd represents the releasenotes command
 var releasenotesCmd = &cobra.Command{
 	Use:   "releasenotes",
@@ -61,12 +64,22 @@ var releasenotesCmd = &cobra.Command{
 	can generate release notes for all projects listed and the releases.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if ProjectsList == "" {
-			log.Fatal("You must specify a project or list of projects with the -p or --projects string flag")
-		}
+		if Query == "" {
+			if ProjectsList == "" {
+				log.Fatal("You must specify a project or list of projects with the -p or --projects string flag")
+			}
 
-		if ReleaseKey == "" {
-			log.Fatal("You must specify a common release key -k or --releasekey string flag")
+			if ReleaseKey == "" {
+				log.Fatal("You must specify a common release key -k or --releasekey string flag")
+			}
+		} else {
+			if ProjectsList != "" {
+				fmt.Println("Ignoring -p/--projects due to -q/--query parameter")
+			}
+
+			if ReleaseKey != "" {
+				fmt.Println("Ignoring -k/--releasekey due to -q/--query parameter")
+			}
 		}
 
 		url, username, apiKey := jirasetup.GetEnvVariablesOrAsk()
@@ -93,6 +106,7 @@ func init() {
 	releasenotesCmd.PersistentFlags().StringVarP(&ProjectsList, "projects", "p", "", "comma-separated list of Jira Projects to evaluate")
 	releasenotesCmd.PersistentFlags().StringVarP(&ReleaseKey, "releasekey", "k", "", "shared key among all sprints for release names")
 	releasenotesCmd.PersistentFlags().StringVarP(&ReleaseLabel, "releaselabel", "l", "", "issues with this label should be included in public release notes")
+	releasenotesCmd.PersistentFlags().StringVarP(&Query, "query", "q", "", "custom query (forces ignore of -p and -k)")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
@@ -124,25 +138,50 @@ func generateReleasesString(projectsList string, releaseKey string) string {
 	return trimmed
 }
 
-func getIssuesForReleases(jiraClient *jira.Client, releasesString string) ReleaseNotes {
+func getAllAndFilteredReleaseNotes(jiraClient *jira.Client, allQueryString string, filteredQueryString string) ReleaseNotes {
+	// set total results > max results so it gets the request the first time
+	resultsPerPage := 100
 
-	searchOpts := jira.SearchOptions{
-		MaxResults: 999,
+	allSearchOpts := jira.SearchOptions{
+		MaxResults: resultsPerPage,
+		StartAt:    0,
+	}
+	filteredSearchOpts := jira.SearchOptions{
+		MaxResults: resultsPerPage,
+		StartAt:    0,
 	}
 	var releaseNotes ReleaseNotes
+	var allIssues []jira.Issue
+	var filteredIssues []jira.Issue
 
-	allIssuesSearchJQL := "fixVersion in (" + releasesString + ") AND status = Done ORDER BY issuetype ASC"
-	allIssues, _, allIssuesErr := jiraClient.Issue.Search(allIssuesSearchJQL, &searchOpts)
-	if allIssuesErr != nil {
-		log.Fatal(allIssuesErr)
+	for {
+		allIssuesPage, resp, err := jiraClient.Issue.Search(allQueryString, &allSearchOpts)
+		if err != nil {
+			log.Fatal(err)
+		}
+		allIssues = append(allIssues, allIssuesPage...)
+
+		if resp.Total < (resp.StartAt + resp.MaxResults) {
+			break
+		}
+		allSearchOpts.StartAt = allSearchOpts.StartAt + resultsPerPage
+
 	}
 	releaseNotes.AllIssues = allIssues
 
-	if ReleaseLabel != "" {
-		filteredIssuesSearchJQL := "fixVersion in (" + releasesString + ") AND status = Done AND labels = " + ReleaseLabel + " ORDER BY issuetype ASC"
-		filteredIssues, _, filteredIssuesErr := jiraClient.Issue.Search(filteredIssuesSearchJQL, &searchOpts)
-		if filteredIssuesErr != nil {
-			log.Fatal(filteredIssuesErr)
+	if filteredQueryString != "" {
+		for {
+			filteredIssuesPage, resp, err := jiraClient.Issue.Search(filteredQueryString, &filteredSearchOpts)
+			if err != nil {
+				log.Fatal(err)
+			}
+			filteredIssues = append(filteredIssues, filteredIssuesPage...)
+
+			if resp.Total < (resp.StartAt + resp.MaxResults) {
+				break
+			}
+			filteredSearchOpts.StartAt = filteredSearchOpts.StartAt + resultsPerPage
+
 		}
 		releaseNotes.FilteredIssues = filteredIssues
 	}
@@ -150,12 +189,36 @@ func getIssuesForReleases(jiraClient *jira.Client, releasesString string) Releas
 	return releaseNotes
 }
 
+func getCustomReleaseNotes(jiraClient *jira.Client, queryString string) ReleaseNotes {
+	filteredIssuesSearchJQL := ""
+	if ReleaseLabel != "" {
+		filteredIssuesSearchJQL = "labels = " + ReleaseLabel + " AND " + queryString
+	}
+
+	return getAllAndFilteredReleaseNotes(jiraClient, queryString, filteredIssuesSearchJQL)
+}
+
+func getIssuesForReleases(jiraClient *jira.Client, releasesString string) ReleaseNotes {
+
+	allIssuesSearchJQL := "fixVersion in (" + releasesString + ") AND status = Done ORDER BY issuetype ASC"
+	filteredIssuesSearchJQL := ""
+	if ReleaseLabel != "" {
+		filteredIssuesSearchJQL = "fixVersion in (" + releasesString + ") AND status = Done AND labels = " + ReleaseLabel + " ORDER BY issuetype ASC"
+	}
+
+	return getAllAndFilteredReleaseNotes(jiraClient, allIssuesSearchJQL, filteredIssuesSearchJQL)
+}
+
 func generateReleaseNotes(jiraClient *jira.Client) {
 	baseURL := fmt.Sprintf("https://%s", jiraClient.GetBaseURL().Host)
 	releasesString := generateReleasesString(ProjectsList, ReleaseKey)
-	releaseNotes := getIssuesForReleases(jiraClient, releasesString)
-
+	var releaseNotes ReleaseNotes
 	var sb strings.Builder
+	if Query != "" {
+		releaseNotes = getCustomReleaseNotes(jiraClient, Query)
+	} else {
+		releaseNotes = getIssuesForReleases(jiraClient, releasesString)
+	}
 
 	if ReleaseLabel != "" {
 		sb.WriteString("# Public Release Notes (" + ReleaseLabel + ")\n\n")
