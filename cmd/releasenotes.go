@@ -56,6 +56,9 @@ var ReleaseLabel string
 // Query holds a custom query string for creating custom release notes.
 var Query string
 
+// FilterID holds the ID of the pre-built filter querying release notes
+var FilterID int
+
 // releasenotesCmd represents the releasenotes command
 var releasenotesCmd = &cobra.Command{
 	Use:   "releasenotes",
@@ -64,7 +67,7 @@ var releasenotesCmd = &cobra.Command{
 	can generate release notes for all projects listed and the releases.
 	`,
 	Run: func(cmd *cobra.Command, args []string) {
-		if Query == "" {
+		if Query == "" && FilterID == 0 {
 			if ProjectsList == "" {
 				log.Fatal("You must specify a project or list of projects with the -p or --projects string flag")
 			}
@@ -107,6 +110,7 @@ func init() {
 	releasenotesCmd.PersistentFlags().StringVarP(&ReleaseKey, "releasekey", "k", "", "shared key among all sprints for release names")
 	releasenotesCmd.PersistentFlags().StringVarP(&ReleaseLabel, "releaselabel", "l", "", "issues with this label should be included in public release notes")
 	releasenotesCmd.PersistentFlags().StringVarP(&Query, "query", "q", "", "custom query (forces ignore of -p and -k)")
+	releasenotesCmd.PersistentFlags().IntVarP(&FilterID, "filterid", "f", 0, "Use a custom filter to fetch release notes results")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
@@ -118,6 +122,7 @@ func getPrintedIssue(i *jira.Issue, baseURL string) string {
 	if i.Fields.Assignee != nil {
 		assignee = i.Fields.Assignee.DisplayName
 	}
+	fmt.Println(i.Fields.Parent.Key)
 	markdownIssue := fmt.Sprintf("- [%s](%s/browse/%s)(%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	return markdownIssue
 }
@@ -189,6 +194,18 @@ func getAllAndFilteredReleaseNotes(jiraClient *jira.Client, allQueryString strin
 	return releaseNotes
 }
 
+func getFilterReleaseNotes(jiraClient *jira.Client, filterID int) ReleaseNotes {
+
+	jiraFilter, _, err := jiraClient.Filter.Get(filterID)
+	if err != nil {
+		log.Fatal(err)
+	}
+	jql := jiraFilter.Jql
+
+	return getCustomReleaseNotes(jiraClient, jql)
+
+}
+
 func getCustomReleaseNotes(jiraClient *jira.Client, queryString string) ReleaseNotes {
 	filteredIssuesSearchJQL := ""
 	if ReleaseLabel != "" {
@@ -216,6 +233,8 @@ func generateReleaseNotes(jiraClient *jira.Client) {
 	var sb strings.Builder
 	if Query != "" {
 		releaseNotes = getCustomReleaseNotes(jiraClient, Query)
+	} else if FilterID > 0 {
+		releaseNotes = getFilterReleaseNotes(jiraClient, FilterID)
 	} else {
 		releaseNotes = getIssuesForReleases(jiraClient, releasesString)
 	}
