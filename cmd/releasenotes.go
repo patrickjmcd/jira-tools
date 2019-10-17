@@ -122,7 +122,6 @@ func getPrintedIssue(i *jira.Issue, baseURL string) string {
 	if i.Fields.Assignee != nil {
 		assignee = i.Fields.Assignee.DisplayName
 	}
-	fmt.Println(i.Fields.Parent.Key)
 	markdownIssue := fmt.Sprintf("- [%s](%s/browse/%s)(%s) %s -- %s -- %s\n", i.Key, baseURL, i.Key, i.Fields.Type.Name, i.Fields.Summary, assignee, i.Fields.Status.Name)
 	return markdownIssue
 }
