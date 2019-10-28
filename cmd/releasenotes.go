@@ -216,10 +216,10 @@ func getCustomReleaseNotes(jiraClient *jira.Client, queryString string) ReleaseN
 
 func getIssuesForReleases(jiraClient *jira.Client, releasesString string) ReleaseNotes {
 
-	allIssuesSearchJQL := "fixVersion in (" + releasesString + ") AND status = Done ORDER BY issuetype ASC"
+	allIssuesSearchJQL := "fixVersion in (" + releasesString + ") AND status in (Done, \"In Staging\", \"In Production\") ORDER BY issuetype ASC"
 	filteredIssuesSearchJQL := ""
 	if ReleaseLabel != "" {
-		filteredIssuesSearchJQL = "fixVersion in (" + releasesString + ") AND status = Done AND labels = " + ReleaseLabel + " ORDER BY issuetype ASC"
+		filteredIssuesSearchJQL = "fixVersion in (" + releasesString + ") AND status in (Done, \"In Staging\", \"In Production\") AND labels = " + ReleaseLabel + " ORDER BY issuetype ASC"
 	}
 
 	return getAllAndFilteredReleaseNotes(jiraClient, allIssuesSearchJQL, filteredIssuesSearchJQL)
