@@ -59,7 +59,6 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.jira-tools.yaml)")
-
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -74,6 +73,7 @@ func initConfig() {
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		os.OpenFile(home+"/.jira-tools.yaml", os.O_RDONLY|os.O_CREATE, 0666)
 
 		// Search config in home directory with name ".jira-tools" (without extension).
 		viper.AddConfigPath(home)
