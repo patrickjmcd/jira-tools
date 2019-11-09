@@ -38,28 +38,33 @@ func GetEnvVariablesOrAsk() (string, string, string) {
 	var jiraUsername string
 	var jiraAPIKey string
 
-	viper.SetEnvPrefix("jira")
-	viper.BindEnv("username")
-	viper.BindEnv("url")
-	viper.BindEnv("api_key")
+	// viper.SetEnvPrefix("jira")
+	// viper.BindEnv("username")
+	// viper.BindEnv("url")
+	// viper.BindEnv("api_key")
 
-	jiraURL = viper.GetString("url")
-	if !viper.IsSet("url") {
+	jiraURL = viper.GetString("jira_url")
+	if !viper.IsSet("jira_url") {
 		jiraURL = getUnspecifiedKey("Jira URL")
-		os.Setenv("JIRA_URL", jiraURL)
+		// os.Setenv("JIRA_URL", jiraURL)
+		viper.Set("jira_url", jiraURL)
 	}
 
-	jiraUsername = viper.GetString("username")
-	if !viper.IsSet("username") {
+	jiraUsername = viper.GetString("jira_username")
+	if !viper.IsSet("jira_username") {
 		jiraUsername = getUnspecifiedKey("Jira Username")
-		os.Setenv("JIRA_USERNAME", jiraUsername)
+		// os.Setenv("JIRA_USERNAME", jiraUsername)
+		viper.Set("jira_username", jiraUsername)
 	}
 
-	jiraAPIKey = viper.GetString("api_key")
-	if !viper.IsSet("api_key") {
+	jiraAPIKey = viper.GetString("jira_api_key")
+	if !viper.IsSet("jira_api_key") {
 		jiraAPIKey = getUnspecifiedKey("Jira API Key")
-		os.Setenv("JIRA_API_KEY", jiraAPIKey)
+		// os.Setenv("JIRA_API_KEY", jiraAPIKey)
+		viper.Set("jira_api_key", jiraAPIKey)
+		fmt.Println()
 	}
+	viper.WriteConfig()
 
 	return jiraURL, jiraUsername, jiraAPIKey
 }
