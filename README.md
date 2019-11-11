@@ -3,10 +3,31 @@
 ## Installation
 
 ```Shell
-go install jira-tools
+go get github.com/patrickjmcd/jira-tools
+go install github.com/patrickjmcd/jira-tools
+```
+
+Make sure that your `$GOPATH/bin` directory is part of your path. I recommend adding the following to your `.bashrc` or `.zshrc` on MacOS:
+
+```Shell
+export PATH=$PATH:$GOPATH/bin
 ```
 
 ## Usage
+
+### Assigned Issues Issues
+
+`mine` will search for incomplete issues assigned to the logged-in user. Flags can be used to create an inclusive list or excluded list of projects.
+
+```Shell
+Usage:
+  jira-tools mine [flags]
+
+Flags:
+  -x, --exclude-projects string   comma-separated list of Jira Projects to exclude
+  -h, --help                      help for mine
+  -i, --include-projects string   comma-separated list of Jira Projects to include
+```
 
 ### Unblocked Issues
 
